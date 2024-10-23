@@ -23,19 +23,19 @@ class GetApiData():
         self.tag = tag
 
 
-    def get_puuid_by_riot_id(self, player_name = self.player_name, tag_line = self.tag, api_key = self.api_key):
+    def get_puuid_by_riot_id(self):
   
         # Using europe region for EUNE accounts
         base_url = "https://europe.api.riotgames.com"
         
         # Encode both the game name and tagline separately
-        encoded_name = quote(player_name)
-        encoded_tag = quote(tag_line)
+        encoded_name = quote(self.player_name)
+        encoded_tag = quote(self.tag_line)
         
         endpoint = f"{base_url}/riot/account/v1/accounts/by-riot-id/{encoded_name}/{encoded_tag}"
         
         headers = {
-            "X-Riot-Token": api_key
+            "X-Riot-Token": self.api_key
         }
         
         print(f"Making request to: {endpoint}")
