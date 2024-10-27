@@ -17,16 +17,17 @@ class PlayerInfo:
 @dataclass
 class GetApiData():
 
-    def __init__(self, player_name, tag, api_key = 'dd'):
+    def __init__(self, player_name, tag, api_key, server):
         self.api_key = api_key
         self.player_name = player_name
         self.tag = tag
+        self.server = server
 
 
     def get_puuid_by_riot_id(self):
   
         # Using europe region for EUNE accounts
-        base_url = "https://europe.api.riotgames.com"
+        base_url = f"https://{self.server}.api.riotgames.com"
         
         # Encode both the game name and tagline separately
         encoded_name = quote(self.player_name)
