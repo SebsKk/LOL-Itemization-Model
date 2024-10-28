@@ -4,11 +4,10 @@ from GetApiData import GetApiData
 from TransformDataFromApi import TransformDataFromApi  
 from GetModelPredictions import GetModelPredictions  
 
-class LoLItemPredictorApp:
+class LoLPredictionApp:
     def __init__(self, items_df, other_features_df, item_encoder, champion_encoder):
         self.api_key = st.secrets["riot_api_key"]  # Store API key in Streamlit secrets
         self.setup_page()
-        self.load_models()
 
         self.item_encoder = item_encoder
         self.champion_encoder = champion_encoder
@@ -29,7 +28,18 @@ class LoLItemPredictorApp:
 
     
     def get_user_input(self):
-        """Get summoner name, tag and server from user"""
+        REGIONS_BY_SERVER = {
+            'Europe': ['EUW1', 'EUN1', 'TR1', 'RU'],
+            'Americas': ['NA1', 'BR1', 'LA1', 'LA2'],
+            'Asia': ['KR', 'JP1', 'OC1', 'PH2', 'SG2', 'TH2', 'TW2', 'VN2']
+        }
+        
+        SERVER_TO_REGION = {
+            region: server.lower()
+            for server, regions in REGIONS_BY_SERVER.items()
+            for region in regions
+        }
+        
         with st.form("summoner_form"):
             col1, col2, col3 = st.columns(3)
             
@@ -37,32 +47,44 @@ class LoLItemPredictorApp:
                 summoner_name = st.text_input("Summoner Name")
             
             with col2:
-                summoner_tag = st.text_input("Tag (e.g., #EUW, #NA, #EUNE)")
+                summoner_tag = st.text_input("Tag")
 
             with col3:
-                server = st.selectbox(
-                    "Server",
-                    options=["Europe", "Americas", "Asia"],
-                    help="Select your server region"
+                region = st.selectbox(
+                    "Region",
+                    options=[
+                        f"{region} ({server})"
+                        for server, regions in REGIONS_BY_SERVER.items()
+                        for region in regions
+                    ],
+                    format_func=lambda x: x.split(" (")[0],
+                    help="Select your game region"
                 )
+                # Extract region code and get corresponding server
+                region_code = region.split(" (")[0]
+                server = SERVER_TO_REGION[region_code]
             
             submit_button = st.form_submit_button("Get Recommendations")
-            
-            return summoner_name, summoner_tag, server, submit_button
+
+            return summoner_name, summoner_tag, server, region_code, submit_button
         
-    def process_data(self, summoner_name, summoner_tag, server):
+        
+    def process_data(self, summoner_name, summoner_tag, server, region):
         """Process the input data through API and transformations"""
         try:
             # Get API data
             api_handler = GetApiData(summoner_name, summoner_tag, self.api_key, server)
             puuid = api_handler.get_puuid_by_riot_id()
 
-            match_data = api_handler.get_active_match_details(puuid)
-                       
+            match_data = api_handler.get_active_match_details(puuid, region)
+            print('before transformer')
             # Transform data
             transformer = TransformDataFromApi(match_data)
 
+            print('data put into transformer')
             processed_data = transformer.create_dataframe()
+
+            print(f'Processed data: {processed_data.head()}')
             
             return processed_data
             
@@ -106,7 +128,8 @@ class LoLItemPredictorApp:
 
     def run(self):
         """Main application loop"""
-        summoner_name, summoner_tag, server, submitted = self.get_user_input()
+        summoner_name, summoner_tag, server, region_code, submitted = self.get_user_input()
+
         
         if submitted:
             with st.spinner("Processing..."):
@@ -115,7 +138,8 @@ class LoLItemPredictorApp:
                     return
                 
                 # Process data
-                processed_data = self.process_data(summoner_name, summoner_tag, server)
+                print(f'Processing data for {summoner_name}, {summoner_tag}, {server}')
+                processed_data = self.process_data(summoner_name, summoner_tag, server, region_code)
                 if processed_data is None:
                     return
                 
@@ -128,5 +152,5 @@ class LoLItemPredictorApp:
                 self.display_results(predictions)
 
 if __name__ == "__main__":
-    app = LoLItemPredictorApp()
+    app = LoLPredictionApp(items_df = 'processed_data\items_df.csv', other_features_df = 'processed_data\other_features_df.csv', item_encoder = 'processed_data\item_encoder.pkl', champion_encoder = 'processed_data\champion_encoder.pkl')
     app.run()
