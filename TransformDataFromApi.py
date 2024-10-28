@@ -32,7 +32,7 @@ class TransformDataFromApi():
             'AP_Range_Assassin': self.AP_Range_Assassin,
             'AP_Melee_Tank': self.AP_Melee_Tank}
 
-        with open('championFull.json') as f:
+        with open('championFull.json', encoding='utf-8') as f:
             self.champion_id_to_name = json.load(f)
 
         self.champion_names_in_game = self.get_champion_names()
@@ -43,6 +43,7 @@ class TransformDataFromApi():
 
     def get_champion_names(self):
 
+        
         id_to_name = {}
         for champ_name, champ_data in self.champion_id_to_name['data'].items():
             champ_id = int(champ_data['key'])  
@@ -58,40 +59,73 @@ class TransformDataFromApi():
             new_player_data[1] = champion_name
             transformed_data.append(new_player_data)
 
+        print(f"Champion names in game: {transformed_data}")
         return transformed_data
     
 
     def convert_champions_to_roles(self, match_data):
         transformed_data = []
+
+        def get_role(champion_name):
+            # Look through all roles in self.champions dictionary
+            for role, champions in self.champions.items():
+                if champion_name in champions:
+                    return role
+            return 'Unknown'  # Return Unknown if champion not found in any role list
+
         for player_data in match_data:
-            # Get champion name and find its role
-            champion_id = player_data[1]
-            champion_name = self.champion_id_to_name.get(champion_id, 'Unknown')
-            role = self.get_role(champion_name)
+            # Champion name is already in player_data[1]
+            champion_name = player_data[1]
+            # Get role using our dictionary lookup
+            role = get_role(champion_name)
 
             new_player_data = player_data.copy()
-            new_player_data[1] = role  
+            new_player_data[1] = role
             transformed_data.append(new_player_data)
 
         return transformed_data
     
 
     def get_champion_position(self):
-        
-        champion_roles = pull_data()
-        champion_positions_in_curr_game = []
-
-        for player, player_data in self.data:
-                champ_id = player_data[1]
-                champ_position = get_roles(champion_roles, champ_id)
-                champion_positions_in_curr_game.append(champ_position)
-
-        return champion_positions_in_curr_game
+        try:
+            print("Getting champion roles data...")
+            champion_roles = pull_data()
+            
+            champion_ids = []
+            
+            # Just collect the champion IDs directly since they're already in position 1
+            for player_data in self.data:
+                champion_id = player_data[1]  # Champion ID is already at index 1
+                champion_ids.append(champion_id)
+            
+            print(f"Champion IDs for position detection: {champion_ids}")
+            
+            # Make sure we have all players
+            if len(champion_ids) == 10:
+                # Important: get_team_roles expects two lists of 5 champions each
+                team1_champs = champion_ids[:5]  # First 5 champions
+                team2_champs = champion_ids[5:]  # Last 5 champions
+                
+                team1_roles = get_roles(champion_roles, team1_champs)
+                team2_roles = get_roles(champion_roles, team2_champs)
+                
+                # Combine roles from both teams
+                all_roles = team1_roles + team2_roles
+                return all_roles
+            else:
+                print(f"Warning: Expected 10 champions, got {len(champion_ids)}")
+                return ['UNKNOWN'] * len(champion_ids)
+            
+        except Exception as e:
+            print(f"Error in get_champion_position: {str(e)}")
+            print(f"Current data format: {self.data}")
+            raise
 
     def load_final_columns(self):
-        final_columns = pd.read_csv('processed_data\other_features_df.csv.csv').columns.tolist()
-        # add champion_id column
+        final_columns = pd.read_csv('processed_data\other_features_df.csv').columns.tolist()
+        # add champion_id column as first coluimns
         final_columns.insert(0, 'champion_id')
+   
         return final_columns
     
     def create_dataframe(self):

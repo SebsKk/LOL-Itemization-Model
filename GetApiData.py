@@ -24,14 +24,15 @@ class GetApiData():
         self.server = server
 
 
+
     def get_puuid_by_riot_id(self):
   
         # Using europe region for EUNE accounts
-        base_url = f"https://{self.server}.api.riotgames.com"
+        base_url = f"https://{self.server.lower()}.api.riotgames.com"
         
         # Encode both the game name and tagline separately
         encoded_name = quote(self.player_name)
-        encoded_tag = quote(self.tag_line)
+        encoded_tag = quote(self.tag)
         
         endpoint = f"{base_url}/riot/account/v1/accounts/by-riot-id/{encoded_name}/{encoded_tag}"
         
@@ -44,7 +45,7 @@ class GetApiData():
         response = requests.get(endpoint, headers=headers)
         print(f"Status code: {response.status_code}")
         print(f"Response: {response.text}")
-        return response['puuid']
+        return response.json()['puuid']
     
     def get_summoner_by_puuid(self, puuid: str, region: str = "eun1"):
         """First get summoner data using PUUID"""
@@ -60,14 +61,16 @@ class GetApiData():
         return response.json()
     
 
-    def get_active_match_details(self, puuid: str, region: str = self.tag) -> List[PlayerInfo]:
+    def get_active_match_details(self, puuid: str, region: str) -> List[List]:
         """Get champion and rune information for all players in an active match"""
-        base_url = f"https://{region}.api.riotgames.com"
+
+        base_url = f"https://{region.lower()}.api.riotgames.com"
         endpoint = f"{base_url}/lol/spectator/v5/active-games/by-summoner/{puuid}"
         
+        print(f"Making request to: {endpoint}")
         try:
             headers = {
-            "X-Riot-Token": self.api_key
+                "X-Riot-Token": self.api_key
             }
             response = requests.get(endpoint, headers=headers)
             response.raise_for_status()
@@ -76,21 +79,21 @@ class GetApiData():
             players_info = []
             
             for participant in match_data['participants']:
-
                 primary_style = participant['perks']['perkIds'][0]
                 secondary_style = participant['perks']['perkIds'][4]
-
                 
-                player_info = PlayerInfo(
-                    summoner_name=participant['puuid'],
-                    champion_id=participant['championId'],
-                    team_id=participant['teamId'],
-                    primary_rune=primary_style or 'Unknown',
-                    secondary_rune=secondary_style or 'Unknown'
-                )
+                # Create a list instead of PlayerInfo object
+                player_info = [
+                    participant['puuid'],           # summoner_name
+                    participant['championId'],      # champion_id
+                    participant['teamId'],          # team_id
+                    primary_style or 'Unknown',     # primary_rune
+                    secondary_style or 'Unknown'    # secondary_rune
+                ]
                 
                 players_info.append(player_info)
             
+            print(f"Players info: {players_info}")
             return players_info
             
         except requests.exceptions.RequestException as e:
