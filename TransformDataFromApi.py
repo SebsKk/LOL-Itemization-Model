@@ -91,35 +91,56 @@ class TransformDataFromApi():
             print("Getting champion roles data...")
             champion_roles = pull_data()
             
-            champion_ids = []
+            # Split champions into teams based on teamId
+            team1_champs = []
+            team2_champs = []
             
-            # Just collect the champion IDs directly since they're already in position 1
             for player_data in self.data:
-                champion_id = player_data[1]  # Champion ID is already at index 1
-                champion_ids.append(champion_id)
+                champion_id = player_data[1]
+                team_id = player_data[2]
+                if team_id == 100:  # First team
+                    team1_champs.append(champion_id)
+                else:  # Second team
+                    team2_champs.append(champion_id)
             
-            print(f"Champion IDs for position detection: {champion_ids}")
+            print(f"Team 1 champions: {team1_champs}")
+            print(f"Team 2 champions: {team2_champs}")
             
-            # Make sure we have all players
-            if len(champion_ids) == 10:
-                # Important: get_team_roles expects two lists of 5 champions each
-                team1_champs = champion_ids[:5]  # First 5 champions
-                team2_champs = champion_ids[5:]  # Last 5 champions
+            # Get positions for each team separately
+            positions = []
+            
+            # Get team 1 positions
+            team1_positions = get_roles(champion_roles, team1_champs)
+            # Get team 2 positions
+            team2_positions = get_roles(champion_roles, team2_champs)
+            
+            # Combine positions in order of original data
+            for player_data in self.data:
+                champion_id = player_data[1]
+                team_id = player_data[2]
                 
-                team1_roles = get_roles(champion_roles, team1_champs)
-                team2_roles = get_roles(champion_roles, team2_champs)
-                
-                # Combine roles from both teams
-                all_roles = team1_roles + team2_roles
-                return all_roles
-            else:
-                print(f"Warning: Expected 10 champions, got {len(champion_ids)}")
-                return ['UNKNOWN'] * len(champion_ids)
+                if team_id == 100:
+                    # Find position in team1_positions
+                    for pos, champ in team1_positions.items():
+                        if champ == champion_id:
+                            positions.append(pos)
+                            break
+                else:
+                    # Find position in team2_positions
+                    for pos, champ in team2_positions.items():
+                        if champ == champion_id:
+                            positions.append(pos)
+                            break
             
+            print(f"Detected positions: {positions}")
+            return positions
+        
         except Exception as e:
             print(f"Error in get_champion_position: {str(e)}")
             print(f"Current data format: {self.data}")
-            raise
+            print("Team 1:", team1_champs)
+            print("Team 2:", team2_champs)
+            return ['UNKNOWN'] * len(self.data)
 
     def load_final_columns(self):
         final_columns = pd.read_csv('processed_data\other_features_df.csv').columns.tolist()

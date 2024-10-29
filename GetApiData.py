@@ -93,7 +93,7 @@ class GetApiData():
                 
                 players_info.append(player_info)
             
-            print(f"Players info: {players_info}")
+
             return players_info
             
         except requests.exceptions.RequestException as e:
