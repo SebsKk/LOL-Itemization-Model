@@ -3,6 +3,7 @@ import pandas as pd
 from GetApiData import GetApiData  
 from TransformDataFromApi import TransformDataFromApi  
 from GetModelPredictions import GetModelPredictions  
+import pickle
 
 class LoLPredictionApp:
     def __init__(self, items_df, other_features_df, item_encoder, champion_encoder):
@@ -77,11 +78,9 @@ class LoLPredictionApp:
             puuid = api_handler.get_puuid_by_riot_id()
 
             match_data = api_handler.get_active_match_details(puuid, region)
-            print('before transformer')
             # Transform data
             transformer = TransformDataFromApi(match_data)
 
-            print('data put into transformer')
             processed_data = transformer.create_dataframe()
 
             print(f'Processed data: {processed_data.head()}')
@@ -96,19 +95,22 @@ class LoLPredictionApp:
         """Make predictions using the model"""
         try:
             predictor = GetModelPredictions(
-                model_path="lol_itemization_model.pth",
-                data=processed_data,
-                item_encoder=self.item_encoder,
-                champion_encoder=self.champion_encoder,
-                items_df=self.items_df,
-                other_features_df=self.other_features_df
+                data=processed_data,               # First parameter
+                item_encoder=self.item_encoder,    # Second parameter
+                champion_encoder=self.champion_encoder,  # Third parameter
+                items_df=self.items_df,           # Fourth parameter
+                other_features_df=self.other_features_df  # Fifth parameter
             )
             
+            print('Predictor created')
             predictions = predictor.predict(processed_data)
             return predictions
             
         except Exception as e:
             st.error(f"Error making predictions: {e}")
+            print(f"Full error: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return None
         
 
@@ -152,5 +154,20 @@ class LoLPredictionApp:
                 self.display_results(predictions)
 
 if __name__ == "__main__":
-    app = LoLPredictionApp(items_df = 'processed_data\items_df.csv', other_features_df = 'processed_data\other_features_df.csv', item_encoder = 'processed_data\item_encoder.pkl', champion_encoder = 'processed_data\champion_encoder.pkl')
+    items_df = pd.read_csv('processed_data/items_df.csv')
+    other_features_df = pd.read_csv('processed_data/other_features_df.csv')
+
+    with open('processed_data/item_encoder.pkl', 'rb') as f:
+        item_encoder = pickle.load(f)
+    
+    with open('processed_data/champion_encoder.pkl', 'rb') as f:
+        champion_encoder = pickle.load(f)
+    
+    # Initialize app with loaded data
+    app = LoLPredictionApp(
+        items_df=items_df,
+        other_features_df=other_features_df,
+        item_encoder=item_encoder,
+        champion_encoder=champion_encoder
+    )
     app.run()
