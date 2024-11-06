@@ -64,6 +64,7 @@ class GetApiData():
     def get_active_match_details(self, puuid: str, region: str) -> List[List]:
         """Get champion and rune information for all players in an active match"""
 
+        our_player_id = None
         base_url = f"https://{region.lower()}.api.riotgames.com"
         endpoint = f"{base_url}/lol/spectator/v5/active-games/by-summoner/{puuid}"
         
@@ -90,11 +91,14 @@ class GetApiData():
                     primary_style or 'Unknown',     # primary_rune
                     secondary_style or 'Unknown'    # secondary_rune
                 ]
+
+                if participant['puuid'] == puuid:
+                    our_player_id = participant['championId']
                 
                 players_info.append(player_info)
             
-
-            return players_info
+            
+            return players_info, our_player_id
             
         except requests.exceptions.RequestException as e:
             print(f"Error fetching match data: {e}")

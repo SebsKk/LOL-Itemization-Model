@@ -19,7 +19,7 @@ class LoLItemizationModel(nn.Module):
         
         # Layers for processing other features and combining with champion features
         self.combined_layers = nn.Sequential(
-            nn.Linear(hidden_dim + num_other_features, hidden_dim),
+            nn.Linear(227, hidden_dim),
             nn.ReLU(),
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
@@ -30,10 +30,13 @@ class LoLItemizationModel(nn.Module):
     def forward(self, champion_ids, other_features):
         # Process champion embeddings
         champion_embedded = self.champion_embedding(champion_ids)
+        print("Champion Embedded Shape:", champion_embedded.shape)
         champion_features = self.champion_layers(champion_embedded)
+        print("Champion Features Shape:", champion_features.shape)
         
         # Combine champion features with other features
         combined = torch.cat([champion_features, other_features], dim=1)
+        print("Combined Shape:", combined.shape)  # Expected: torch.Size([1, 237])
         
         # Process combined features
         output = self.combined_layers(combined)

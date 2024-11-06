@@ -7,8 +7,9 @@ from roleidentification.utilities import get_champion_roles, get_team_roles
 
 class TransformDataFromApi():
 
-    def __init__(self, data):
+    def __init__(self, data, our_player_id):
         self.data = data
+        self.our_player_id = our_player_id
 
         self.AD_Range_Shooter = ['Akshan','Smolder','Nilah','Urgot','Jayce','Corki','Kindred','Graves','Tristana', 'Jinx', 'Caitlyn', 'Ezreal', 'MissFortune', 'Varus', 'KogMaw', 'Samira','Lucian','Ashe', 'Aphelios', 'Kalista', 'Senna', 'Draven', 'Jhin', 'Vayne', 'Xayah', 'Sivir', 'Twitch', 'Kaisa', 'Quinn', 'Zeri']
         self.AD_Melee_Bruiser = ['Belveth','Gnar','LeeSin','Trundle','Fiora','Warwick','Riven','Gangplank','RekSai','Aatrox', 'Camille', 'Darius', 'Fiora', 'Garen', 'Hecarim', 'Illaoi', 'Irelia', 'JarvanIV', 'Jax', 'Kled', 'Nasus', 'Olaf', 'Pantheon', 'Renekton', 'Sett', 'Tryndamere', 'Vi', 'MonkeyKing', 'XinZhao', 'Yone','Yorick', 'Kayn']
@@ -35,32 +36,43 @@ class TransformDataFromApi():
         with open('championFull.json', encoding='utf-8') as f:
             self.champion_id_to_name = json.load(f)
 
-        self.champion_names_in_game = self.get_champion_names()
+        self.champion_names_in_game, self.our_player_champion_name = self.get_champion_names()
         self.champions_to_roles = self.convert_champions_to_roles(self.champion_names_in_game)
 
         self.final_columns = self.load_final_columns()
         self.player_positions = self.get_champion_position()
 
+        
+
     def get_champion_names(self):
 
-        
+        print(f' our champion id: {self.our_player_id}')
         id_to_name = {}
         for champ_name, champ_data in self.champion_id_to_name['data'].items():
             champ_id = int(champ_data['key'])  
             id_to_name[champ_id] = champ_name
 
+        
         # transform the lists
         transformed_data = []
         for player_data in self.data:
+            print(f"Player data: {player_data}")
 
             champion_id = player_data[1]
-            champion_name = id_to_name.get(champion_id, 'Unknown')
+
+            champion_name = id_to_name[champion_id]
+            print(f'Champion Name: {champion_name}')
             new_player_data = player_data.copy()
             new_player_data[1] = champion_name
+            print(f"New player data: {new_player_data}")
             transformed_data.append(new_player_data)
 
-        print(f"Champion names in game: {transformed_data}")
-        return transformed_data
+            if champion_id == self.our_player_id:
+                our_player_champion_name = champion_name
+                print(f"Our player champion name: {our_player_champion_name}")
+
+        print(f"Transformed data: {transformed_data}")
+        return transformed_data, our_player_champion_name
     
 
     def convert_champions_to_roles(self, match_data):
@@ -88,7 +100,6 @@ class TransformDataFromApi():
 
     def get_champion_position(self):
         try:
-            print("Getting champion roles data...")
             champion_roles = pull_data()
             
             # Split champions into teams based on teamId
@@ -103,8 +114,6 @@ class TransformDataFromApi():
                 else:  # Second team
                     team2_champs.append(champion_id)
             
-            print(f"Team 1 champions: {team1_champs}")
-            print(f"Team 2 champions: {team2_champs}")
             
             # Get positions for each team separately
             positions = []
@@ -132,7 +141,6 @@ class TransformDataFromApi():
                             positions.append(pos)
                             break
             
-            print(f"Detected positions: {positions}")
             return positions
         
         except Exception as e:
@@ -155,7 +163,9 @@ class TransformDataFromApi():
         df = df.fillna(0)
         # first of all - column with champion id of the player we are forecasting items for
 
+        print(f'data we are working with: {self.data}') 
         df.loc[0, 'champion_id'] = self.data[0][1]
+        print(f"Champion id: {self.data[0][1]}")
 
         # second - columns with champion and position of all players in game
 
@@ -163,7 +173,7 @@ class TransformDataFromApi():
             player_role = self.champions_to_roles[i][1]
             player_position = self.player_positions[i]
 
-            team = 'Friendly' if self.data[i][2] == self.data[0][2] else 'Enemy'
+            team = 'Friendly ' if self.data[i][2] == self.data[0][2] else 'Enemy '
 
             map_position_to_proper_name = {
             'TOP': 'Top',
@@ -172,7 +182,7 @@ class TransformDataFromApi():
             'BOTTOM': 'Bottom',
             'UTILITY': 'Utility'
             }
-            column_name = f'{team} {map_position_to_proper_name[player_position]}_player_role'
+            column_name = f'{team}{map_position_to_proper_name[player_position]}_{player_role}'
 
             df.loc[0, column_name]= 1
 
@@ -185,6 +195,9 @@ class TransformDataFromApi():
             secondary_rune = self.data[i][4]
             secondary_col_name = f'Secondary Rune_{secondary_rune}'
             df.loc[0, secondary_col_name] = 1
+        
 
-        return df
+        print (f"Dataframe shape in create dataframe: {df.shape}")
+
+        return df, self.our_player_champion_name
 
