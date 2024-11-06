@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from GetApiData import GetApiData  
 from TransformDataFromApi import TransformDataFromApi  
-from GetModelPredictions import GetModelPredictions  
+from GetModelPredictions import GetModelPredictions
 import pickle
 
 class LoLPredictionApp:
@@ -14,6 +14,8 @@ class LoLPredictionApp:
         self.champion_encoder = champion_encoder
         self.items_df = items_df
         self.other_features_df = other_features_df
+
+        self.our_player_champion_name = None
 
     def setup_page(self):
         """Configure initial page layout"""
@@ -76,15 +78,19 @@ class LoLPredictionApp:
             # Get API data
             api_handler = GetApiData(summoner_name, summoner_tag, self.api_key, server)
             puuid = api_handler.get_puuid_by_riot_id()
+            print(f'PUUID: {puuid}')
+            match_data, our_player_id = api_handler.get_active_match_details(puuid, region)
 
-            match_data = api_handler.get_active_match_details(puuid, region)
+            print(f'Our player ID: {our_player_id}')
+   
             # Transform data
-            transformer = TransformDataFromApi(match_data)
+            transformer = TransformDataFromApi(match_data, our_player_id)
+            print(f'Transformer: {transformer}')
 
-            processed_data = transformer.create_dataframe()
-
-            print(f'Processed data: {processed_data.head()}')
-            
+            processed_data, our_player_champion_name = transformer.create_dataframe()
+   
+            self.our_player_champion_name = our_player_champion_name
+            print(f'Our player champion name: {self.our_player_champion_name}')
             return processed_data
             
         except Exception as e:
@@ -95,15 +101,12 @@ class LoLPredictionApp:
         """Make predictions using the model"""
         try:
             predictor = GetModelPredictions(
-                data=processed_data,               # First parameter
-                item_encoder=self.item_encoder,    # Second parameter
-                champion_encoder=self.champion_encoder,  # Third parameter
-                items_df=self.items_df,           # Fourth parameter
-                other_features_df=self.other_features_df  # Fifth parameter
+                data=processed_data              # First parameter
+                
             )
             
-            print('Predictor created')
-            predictions = predictor.predict(processed_data)
+            print(f'processed data in make_predictions: {processed_data}, shape: {processed_data.shape}')
+            predictions = predictor.predict(processed_data, self.our_player_champion_name)
             return predictions
             
         except Exception as e:
@@ -142,6 +145,7 @@ class LoLPredictionApp:
                 # Process data
                 print(f'Processing data for {summoner_name}, {summoner_tag}, {server}')
                 processed_data = self.process_data(summoner_name, summoner_tag, server, region_code)
+                print(f'Processed data: {processed_data}')
                 if processed_data is None:
                     return
                 
